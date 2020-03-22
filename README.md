@@ -19,8 +19,8 @@ stack run -- --graph active Hubei,China "South Korea" Italy Spain Belgium > grap
 ```
 ...and open the output file in a browser.
 
-## Usage
-
+## Full usage
+```
 Usage: corona [-g|--graph] [-x|--source ARG] [-s|--smoothing ARG] 
               [-m|--minimum ARG] ITEM REGION
   Calculate daily growth rates for the covid-19 pandemic
@@ -36,3 +36,4 @@ Available options:
   ITEM                     The input series (confirmed / active / recovered /
                            deaths).
   REGION                   The region(s) to show
+```
