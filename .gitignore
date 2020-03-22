@@ -1,0 +1,5 @@
+*~
+*.html
+data/
+.stack-work/
+dist-newstyle/
