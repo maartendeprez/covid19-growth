@@ -75,7 +75,7 @@ getXData item = do
 
 parseCSV :: ByteString -> Either String [[Text]]
 parseCSV = A.parseOnly (csv <* A.endOfInput) . T.decodeUtf8
-  where csv = row `A.sepBy1` "\r\n"
+  where csv = some (row <* A.char '\n')
         row = col `A.sepBy` ","
         col = (A.char '"' *> A.takeWhile (/= '"') <* A.char '"')
           <|> A.takeWhile (`notElem` (",\r\n" :: String))
