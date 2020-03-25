@@ -18,7 +18,7 @@ extra-source-files:  CHANGELOG.md
 
 executable corona
   main-is:             Main.hs
-  other-modules:       Series, CSSE
+  other-modules:       Series, CSSE, Worldometers
   -- other-extensions:
   build-depends:       base >=4.13 && <4.14
                      , http-conduit ^>=2.3.7
@@ -29,6 +29,7 @@ executable corona
                      , filepath ^>=1.4.2
                      , time ^>=1.9.3
                      , attoparsec ^>=0.13.2
+                     , aeson ^>=1.4.6
                      , optparse-applicative ^>=0.15.1
   -- hs-source-dirs:
   default-language:    Haskell2010

@@ -3,6 +3,8 @@
 module Main where
 
 import Options.Applicative
+
+import System.Exit
 import System.IO
 
 import Text.Read
@@ -24,6 +26,7 @@ import qualified Data.Text.Encoding as T
 
 import Series
 import qualified CSSE
+import qualified Worldometers
 
 
 data Args = Args { argMode :: Mode
@@ -43,21 +46,26 @@ main = do
 
   Args{..} <- execParser argsInfo
 
-  (dates,regions,values) <- case argSource of
+  dataMap <- case argSource of
+    SCSSE -> CSSE.getData argItem
+    SWorldometers -> fromMaybe M.empty . M.lookup argItem
+      <$> Worldometers.getData argRegions
 
-    SCSSE -> do
+  let (regions,invalidRegions) = partition (`M.member` dataMap) argRegions
 
-      dataMap <- CSSE.getData argItem
+  when (null regions) $ do
+    hPutStrLn stderr "Error: no data found!"
+    exitFailure
+  
+  when (not $ null invalidRegions) $
+    hPutStrLn stderr ((case argSource of SCSSE -> "Warning: unknown region(s): "
+                                         SWorldometers -> "Warning: missing data for region(s): ")
+                      <> intercalate ", " (map T.unpack invalidRegions))
 
-      let (validRegions,invalidRegions) = partition (`M.member` dataMap) argRegions
-      when (not $ null invalidRegions) $ hPutStrLn stderr $ "Warning: unknown region(s): "
-        <> intercalate ", " (map T.unpack invalidRegions)
-
-      let series = map (dataMap M.!) validRegions
-      return ( serDates (head series), validRegions
-             , map serValues series )
-
-  let growths = map (getGrowths argStart argSmoothing) values
+  let series = map (dataMap M.!) regions
+      dates = serDates (head series)
+      values = map serValues series
+      growths = map (getGrowths argStart argSmoothing) values
 
   case argMode of
     MTable -> showGrowths dates regions growths
