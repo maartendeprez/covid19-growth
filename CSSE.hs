@@ -17,6 +17,7 @@ import Data.List
 
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
+import Data.Time.Calendar
 
 import qualified Data.Attoparsec.Text as A
 
@@ -71,7 +72,7 @@ getXData item = do
       hPutStrLn stderr $ "Failed to parse input: " <> err
       exitWith $ ExitFailure 1
     
-  return $ M.fromList $ map (getSeries $ drop 4 hdrs) rows
+  return $ M.fromList $ map (getSeries $ map parseDate $ drop 4 hdrs) rows
 
 parseCSV :: ByteString -> Either String [[Text]]
 parseCSV = A.parseOnly (csv <* A.endOfInput) . T.decodeUtf8
@@ -79,6 +80,13 @@ parseCSV = A.parseOnly (csv <* A.endOfInput) . T.decodeUtf8
         row = col `A.sepBy` ","
         col = (A.char '"' *> A.takeWhile (/= '"') <* A.char '"')
           <|> A.takeWhile (`notElem` (",\r\n" :: String))
+
+parseDate :: Text -> Day
+parseDate t = case T.splitOn "/" t of
+  [month,day,year] -> fromGregorian
+    (read $ "20" <> T.unpack year)
+    (read $ T.unpack month)
+    (read $ T.unpack day)
 
 
 outdated :: String -> IO Bool
@@ -94,7 +102,7 @@ maxAge :: NominalDiffTime
 maxAge = fromIntegral 1800
 
 
-getSeries :: [Text] -> [Text] -> (Text,Series)
+getSeries :: [Day] -> [Text] -> (Text,Series)
 getSeries serDates (state:country:_:_:values) = (serRegion, Series {..})
   where serValues = map (read . T.unpack) values
         serRegion

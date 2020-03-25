@@ -4,12 +4,14 @@ module Series (Series(..), Item(..), DataMap) where
 
 import GHC.Generics
 
+import Data.Time.Calendar
+
 import Data.Map (Map)
 import Data.Text (Text)
 import Data.Aeson (FromJSON, ToJSON, FromJSONKey, ToJSONKey)
 
 data Series = Series { serRegion :: Text
-                     , serDates :: [Text]
+                     , serDates :: [Day]
                      , serValues :: [Int]
                      } deriving (Show,Generic,FromJSON,ToJSON)
 

@@ -1,7 +1,10 @@
 #!/bin/bash
 
-regions=( Hubei,China "South Korea" Italy Spain Belgium Netherlands Brazil Romania "New York,US" )
+regions=( China South-Korea Italy Spain Belgium Netherlands Brazil Switzerland France Germany US UK )
+# Romania not yet available
 
-for item in confirmed active deaths; do
-    stack run -- --source worldometers --graph $item "${regions[@]}" > $item.html
-done
+stack run -- --source worldometers --minimum 10 --smoothing 7 --graph confirmed "${regions[@]}" > confirmed.html
+stack run -- --source worldometers --minimum 10 --smoothing 7 --graph active "${regions[@]}" > active.html
+stack run -- --source worldometers --minimum 2 --smoothing 7 --graph deaths "${regions[@]}" > deaths.html
+
+scp *.html crissaegrim.be.eu.org:covid19/

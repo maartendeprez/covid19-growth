@@ -13,8 +13,12 @@ import Text.Printf
 import Control.Monad
 import Control.Applicative
 
+import Debug.Trace
+
 import Data.Maybe
 import Data.List
+
+import Data.Time.Calendar
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -62,9 +66,7 @@ main = do
                                          SWorldometers -> "Warning: missing data for region(s): ")
                       <> intercalate ", " (map T.unpack invalidRegions))
 
-  let series = map (dataMap M.!) regions
-      dates = serDates (head series)
-      values = map serValues series
+  let (dates,values) = align $ map (dataMap M.!) regions
       growths = map (getGrowths argStart argSmoothing) values
 
   case argMode of
@@ -108,6 +110,15 @@ showItem Confirmed = "Confirmed Cases"
 showItem Active = "Active Cases"
 showItem Recovered = "Recoveries"
 showItem Deaths = "Deaths"
+
+
+align :: [Series] -> ([Text],[[Int]])
+align series = (dates,values)
+  where dates = map (T.pack . show) [minDate..maxDate]
+        minDate = minimum $ map (head . serDates) series
+        maxDate = maximum $ map (last . serDates) series
+        values = map (\Series{..} -> map (const 0) [minDate .. addDays (-1) (head serDates)] ++ serValues
+                                     ++ map (const 0) [addDays 1 (last serDates) .. maxDate]) series
 
 
 showGraph :: Args -> [Text] -> [Text] -> [[Maybe (Int, Maybe Double)]] -> IO ()

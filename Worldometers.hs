@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards, LambdaCase #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, LambdaCase, TupleSections #-}
 
 module Worldometers (getData) where
 
@@ -18,6 +18,7 @@ import Data.List
 
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
+import Data.Time.Calendar
 
 import qualified Data.Aeson as J
 
@@ -55,8 +56,11 @@ getSeries region = do
       createDirectoryRecursive cacheDir
       input <- getResponseBody <$> httpBS (url region)
       series <- case parseSeries region (T.decodeUtf8 input) of
-        Left err -> exitWithError $ "Failed to parse input for " <> T.unpack region <> ": " <> err
-        Right val -> pure val
+        Left err -> exitWithError $ "Failed to parse input for "
+          <> T.unpack region <> ": " <> err
+        Right graphs -> pure $ addRecovered $ M.fromList
+          $ mapMaybe (\(name,vals) -> (,vals) <$> getItem name)
+          $ M.toList graphs
       B.writeFile cachePath $ LB.toStrict $ J.encode series
       return series
     False -> J.decode <$> LB.readFile cachePath >>= \case
@@ -73,7 +77,7 @@ exitWithError msg = do
   exitWith $ ExitFailure 1
 
 
-parseSeries :: Text -> Text -> Either String (Map Item Series)
+parseSeries :: Text -> Text -> Either String (Map Text Series)
 parseSeries region = A.parseOnly (seriesMapP region)
 
 
@@ -100,30 +104,46 @@ maxAge :: NominalDiffTime
 maxAge = fromIntegral 1800
 
 
-seriesMapP :: Text -> A.Parser (Map Item Series)
-seriesMapP region = addRecovered . M.fromList
-  . catMaybes <$> many (seriesP region)
+seriesMapP :: Text -> A.Parser (Map Text Series)
+seriesMapP region = M.fromList <$> many (seriesP region)
 
 
-seriesP :: Text -> A.Parser (Maybe (Item,Series))
+seriesP :: Text -> A.Parser (Text,Series)
 seriesP region = do
   A.manyTill A.anyChar "categories: ["
-  maybeSeriesP region <|> pure Nothing
+  maybeSeriesP region <|> seriesP region
 
-maybeSeriesP :: Text -> A.Parser (Maybe (Item,Series))
+maybeSeriesP :: Text -> A.Parser (Text,Series)
 maybeSeriesP serRegion = do
-  serDates <- (A.char '"' *> A.takeWhile (/= '"') <* A.char '"')
+
+  serDates <- (A.char '"' *> dateP <* A.char '"')
     `A.sepBy` A.char ',' <* "]"
   A.manyTill A.anyChar "series: [{"
   A.skipSpace
-  name <- getItem <$> ("name: '" *> A.takeWhile (/= '\'') <* "',")
+  name <- ("name: '" *> A.takeWhile (/= '\'') <* "',")
   A.manyTill A.anyChar "data: ["
   serValues <- (A.decimal <|> ("nan" *> pure 0)) `A.sepBy` "," <* "]"
 
-  return $ Just (fromJust name, Series{..})
-  {-return $ case getItem name of
-    Just item -> Just (item,Series{..})
-    Nothing -> Nothing-}
+  return (name, Series{..})
+
+
+dateP :: A.Parser Day
+dateP = fromGregorian 2020 <$> monthP <*> (A.char ' ' >> A.decimal)
+
+
+monthP :: A.Parser Int
+monthP = ("Jan" *> pure 1)
+  <|> ("Feb" *> pure 2)
+  <|> ("Mar" *> pure 3)
+  <|> ("Apr" *> pure 4)
+  <|> ("May" *> pure 5)
+  <|> ("Jun" *> pure 6)
+  <|> ("Jul" *> pure 7)
+  <|> ("Aug" *> pure 8)
+  <|> ("Sep" *> pure 9)
+  <|> ("Oct" *> pure 10)
+  <|> ("Nov" *> pure 11)
+  <|> ("Dec" *> pure 12)
 
 
 getItem :: Text -> Maybe Item
