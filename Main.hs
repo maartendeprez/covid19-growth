@@ -36,7 +36,9 @@ import qualified Worldometers
 data Args = Args { argMode :: Mode
                  , argSource :: Source
                  , argSmoothing :: Int
+                 , argAvgSmoothing :: Int
                  , argStart :: Int
+                 , argDaily :: Bool
                  , argItem :: Item
                  , argRegions :: [Text]
                  } deriving Show
@@ -67,7 +69,7 @@ main = do
                       <> intercalate ", " (map T.unpack invalidRegions))
 
   let (dates,values) = align $ map (dataMap M.!) regions
-      growths = map (getGrowths argStart argSmoothing) values
+      growths = map (getGrowths argStart argSmoothing argAvgSmoothing argDaily) values
 
   case argMode of
     MTable -> showGrowths dates regions growths
@@ -85,8 +87,11 @@ args = Args
                                        <> help "Where to obtain the input data (csse / worldometers).")
   <*> option auto (long "smoothing" <> short 's' <> value 3 <> showDefault
                    <> help "Over how many days to calculate growth rate.")
+  <*> option auto (long "avg-smoothing" <> short 'a' <> value 3 <> showDefault
+                   <> help "Over how many days to calculate daily increase / decrease averages.")
   <*> option auto (long "minimum" <> short 'm' <> value 50 <> showDefault
                    <> help "The minimum number to trigger the start of the series.")
+  <*> switch (long "daily" <> short 'd' <> help "Calculate over daily increase / decreasy instead of total value.")
   <*> argument (maybeReader readItem) (metavar "ITEM" <> help "The input series (confirmed / active / recovered / deaths).")
   <*> some (strArgument (metavar "REGION" <> help "The region(s) to show"))
 
@@ -125,11 +130,13 @@ showGraph :: Args -> [Text] -> [Text] -> [[Maybe (Int, Maybe Double)]] -> IO ()
 showGraph Args{..} dates regions values = do
 
   let empties = minimum $ map (length . takeWhile emptyGrowth) values
-      ymin = if argItem == Active then 0 else 1
+      ymin = if argItem == Active || argDaily then 0 else 1
       ymax = maybe 2 (+0.3) $ maximum $ map getGrowth $ concat values
       series = T.intercalate ", "  $ map (graphData (drop empties dates))
         $ zip regions $ map (drop empties) values
-      title = "COVID-19 Growth of " <> showItem argItem
+      title = "COVID-19 Growth of "
+        <> (if argDaily then "daily " else "")
+        <> showItem argItem
 
   T.putStrLn $ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
   T.putStrLn $ "<html>"
@@ -197,8 +204,9 @@ showGrowth (Just (n,f)) = printf "%s (%6d)" (growth f) n
 dateWidth = 10 :: Int
 colWidth = 17 :: Int
 
-getGrowths :: Int -> Int -> [Int] -> [Maybe (Int, Maybe Double)]
-getGrowths start len = growths []
+getGrowths :: Int -> Int -> Int -> Bool -> [Int] -> [Maybe (Int, Maybe Double)]
+
+getGrowths start len avg False = growths []
   where growths _ [] = []
         growths [] (n:ns)
           | n < start = Nothing : growths [] ns
@@ -208,3 +216,14 @@ getGrowths start len = growths []
           | otherwise = Just (n,Just f) : growths (tail rs ++ [n]) ns
             where f = (fromIntegral n / fromIntegral (head rs))
                     ** (1 / fromIntegral (length rs))
+
+getGrowths start len avg True = growths []
+  where growths _ [] = []
+        growths [] (n:ns)
+          | n < start = Nothing : growths [] ns
+          | otherwise = Nothing : growths [n] ns
+        growths rs (n:ns)
+          | length rs < len + avg = Just (n - last rs, Nothing) : growths (rs ++ [n]) ns
+          | otherwise = Just (n - last rs, Just f) : growths (tail rs ++ [n]) ns
+            where f = ( fromIntegral (n - rs!!len) / fromIntegral (rs!!avg - head rs))
+                    ** (1 / fromIntegral len)
