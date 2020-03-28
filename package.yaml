@@ -1,0 +1,30 @@
+name:                corona
+version:             0.1.0.0
+github:              "githubuser/maartendeprez"
+license:             BSD3
+author:              "Maarten Deprez"
+maintainer:          "deprez.maarten@gmail.com"
+copyright:           "2020 Maarten Deprez"
+
+dependencies:
+- base >= 4.7 && < 5
+
+executables:
+  corona:
+    main:                Main.hs
+    source-dirs:         src
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - time
+    - containers
+    - text
+    - bytestring
+    - aeson
+    - http-conduit
+    - unix
+    - filepath
+    - attoparsec
+    - optparse-applicative
