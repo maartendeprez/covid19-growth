@@ -33,6 +33,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 
 import Series
+import Common
 
 
 data XItem = XConfirmed | XRecovered | XDeaths
@@ -89,19 +90,6 @@ parseDate t = case T.splitOn "/" t of
     (read $ T.unpack day)
 
 
-outdated :: String -> IO Bool
-outdated path = fileExist path >>= \case
-  True -> do
-    modified <- posixSecondsToUTCTime . modificationTimeHiRes
-      <$> getFileStatus path
-    now <- getCurrentTime
-    return $ addUTCTime maxAge modified < now
-  False -> return True
-
-maxAge :: NominalDiffTime
-maxAge = fromIntegral 1800
-
-
 getSeries :: [Day] -> [Text] -> (Text,Series)
 getSeries serDates (state:country:_:_:values) = (serRegion, Series {..})
   where serValues = map (read . T.unpack) values
@@ -124,9 +112,3 @@ cache XDeaths = "deaths.csv"
 
 cacheDir :: String
 cacheDir = "data/csse"
-
-createDirectoryRecursive :: String -> IO ()
-createDirectoryRecursive dir = forM_ (tail $ inits $ splitPath dir) $ \ps -> do
-  let path = joinPath ps
-  exists <- fileExist path
-  when (not exists) $ createDirectory path accessModes

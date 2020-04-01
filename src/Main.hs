@@ -28,9 +28,12 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Text.Encoding as T
 
-import Series
+import qualified SUS
 import qualified CSSE
 import qualified Worldometers
+
+import Series
+import Common
 
 
 data Args = Args { argMode :: Mode
@@ -43,7 +46,7 @@ data Args = Args { argMode :: Mode
                  , argRegions :: [Text]
                  } deriving Show
 
-data Source = SCSSE | SWorldometers deriving Show
+data Source = SCSSE | SWorldometers | SSus deriving Show
 data Mode = MTable | MGraph deriving Show
 
 
@@ -54,8 +57,10 @@ main = do
 
   dataMap <- case argSource of
     SCSSE -> CSSE.getData argItem
-    SWorldometers -> fromMaybe M.empty . M.lookup argItem
-      <$> Worldometers.getData argRegions
+    SWorldometers -> M.lookup argItem <$> Worldometers.getData argRegions >>= \case
+      Nothing -> exitWithError $ "Item " <> T.unpack (showItem argItem) <> " is not available from Worldometers"
+      Just map -> pure map
+    SSus -> SUS.getData argItem
 
   let (regions,invalidRegions) = partition (`M.member` dataMap) argRegions
 
@@ -99,22 +104,8 @@ args = Args
 readSource :: String -> Maybe Source
 readSource "csse" = Just SCSSE
 readSource "worldometers" = Just SWorldometers
+readSource "sus" = Just SSus
 readSource _ = Nothing
-
-
-readItem :: String -> Maybe Item
-readItem "confirmed" = Just Confirmed
-readItem "active" = Just Active
-readItem "recovered" = Just Recovered
-readItem "deaths" = Just Deaths
-readItem _ = Nothing
-
-
-showItem :: Item -> Text
-showItem Confirmed = "Confirmed Cases"
-showItem Active = "Active Cases"
-showItem Recovered = "Recoveries"
-showItem Deaths = "Deaths"
 
 
 align :: [Series] -> ([Text],[[Int]])

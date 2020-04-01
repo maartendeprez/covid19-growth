@@ -35,10 +35,8 @@ import qualified Data.ByteString.Lazy as LB
 
 import qualified Data.Attoparsec.Text as A
 
-import Debug.Trace
-
 import Series
-
+import Common
 
 getData :: [Text] -> IO (Map Item DataMap)
 getData regions = foldM addRegion M.empty regions
@@ -71,37 +69,12 @@ url :: Text -> Request
 url region = parseRequest_ $ "https://www.worldometers.info/coronavirus/country/" <> T.unpack region <> "/"
 
 
-exitWithError :: String -> IO a
-exitWithError msg = do
-  hPutStrLn stderr msg
-  exitWith $ ExitFailure 1
-
-
 parseSeries :: Text -> Text -> Either String (Map Text Series)
 parseSeries region = A.parseOnly (seriesMapP region)
 
 
 cacheDir :: String
 cacheDir = "data/worldometers"
-
-
-createDirectoryRecursive :: String -> IO ()
-createDirectoryRecursive dir = forM_ (tail $ inits $ splitPath dir) $ \ps -> do
-  let path = joinPath ps
-  exists <- fileExist path
-  when (not exists) $ createDirectory path accessModes
-
-outdated :: String -> IO Bool
-outdated path = fileExist path >>= \case
-  True -> do
-    modified <- posixSecondsToUTCTime . modificationTimeHiRes
-      <$> getFileStatus path
-    now <- getCurrentTime
-    return $ addUTCTime maxAge modified < now
-  False -> return True
-
-maxAge :: NominalDiffTime
-maxAge = fromIntegral 1800
 
 
 seriesMapP :: Text -> A.Parser (Map Text Series)

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bc02472060501ec7ef3bf7602171b1e08cc89c8b0a9488fdf9a51fe9cb0b1fe5
+-- hash: 5dc962e4bf3fd7b9174257a1f863774cd22a73b161d4e818820746353deb8e00
 
 name:           corona
 version:        0.1.0.0
@@ -24,8 +24,10 @@ source-repository head
 executable corona
   main-is: Main.hs
   other-modules:
+      Common
       CSSE
       Series
+      SUS
       Worldometers
       Paths_corona
   hs-source-dirs:
