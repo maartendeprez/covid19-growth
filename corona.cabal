@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5dc962e4bf3fd7b9174257a1f863774cd22a73b161d4e818820746353deb8e00
+-- hash: d9cbe70dda9aa1d655110eb6064a4fdc60cd89d8e8dddeff099fa145aab2c951
 
 name:           corona
 version:        0.1.0.0
@@ -26,8 +26,10 @@ executable corona
   other-modules:
       Common
       CSSE
+      Plotly
       Series
       SUS
+      Vega
       Worldometers
       Paths_corona
   hs-source-dirs:
@@ -41,6 +43,7 @@ executable corona
     , containers
     , filepath
     , http-conduit
+    , neat-interpolation
     , optparse-applicative
     , text
     , time

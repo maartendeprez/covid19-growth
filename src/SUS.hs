@@ -7,6 +7,8 @@ import System.IO
 
 import Control.Applicative
 
+import Data.Either
+
 import Data.Time.Clock
 import Data.Time.Format
 import Data.Time.Calendar
@@ -32,7 +34,8 @@ import Common
 getData :: Item -> IO DataMap
 getData Confirmed = getSeries (\(_,_,x,_) -> x) <$> getXData
 getData Deaths = getSeries (\(_,_,_,x) -> x) <$> getXData
-getData item = exitWithError $ "Item " <> T.unpack (showItem item) <> " is not available from SUS"
+getData item = exitWithError $ "Item " <> T.unpack (showItem item)
+  <> " is not available from SUS"
 
 
 getSeries :: (Row -> Int) -> [Row] -> DataMap
@@ -52,18 +55,20 @@ getXData :: IO [Row]
 getXData = do
   file <- getFileName
   let cachePath = cacheDir <> "/" <> file
-  input <- outdated cachePath >>= \case
+  hPutStrLn stderr $ "Reading " <> cachePath
+  input <- {-outdated cachePath >>= \case
     True -> do
       hPutStrLn stderr $ "Downloading SUS data..."
       createDirectoryRecursive cacheDir
       download <- getResponseBody <$> httpBS (getUrl file)
       B.writeFile cachePath download
       return download
-    False -> B.readFile (cacheDir <> "/" <> file)
+    False -> -} B.readFile (cacheDir <> "/" <> file)
 
   case parseCSV (T.decodeUtf8 input) of
     Left err -> exitWithError $ "Failed to parse input: " <> err
-    Right csv -> pure csv
+    Right csv -> mapM_ (putStrLn . ("Invalid row: " <>) . T.unpack) invalid
+      >> pure valid where (invalid,valid) = partitionEithers csv
 
 
 cacheDir :: String
@@ -75,30 +80,49 @@ getUrl = parseRequest_ . ("https://covid.saude.gov.br/assets/files/" <>)
 getFileName :: IO String
 getFileName = do
   time <- getCurrentTime
-  return $ "COVID19_" <> formatTime defaultTimeLocale "%Y%m%d" time <> ".csv"
+  return $ "COVID19_20200411.csv" -- <> formatTime defaultTimeLocale "%Y%m%d"
+--    (addUTCTime (-nominalDay) time) <> ".csv"
+--    time <> ".csv"
 
 type Row = (Text,Day,Int,Int)
 
-parseCSV :: Text -> Either String [Row]
+parseCSV :: Text -> Either String [Either Text Row]
 parseCSV = A.parseOnly (csvP <* A.endOfInput)
 
-csvP :: A.Parser [Row]
-csvP = headersP >> many rowP
+csvP :: A.Parser [Either Text Row]
+csvP = headersP >> many ((Right <$> rowP) <|> (Left <$> invalidRowP))
 
 headersP :: A.Parser ()
-headersP = "regiao;estado;data;casosNovos;casosAcumulados;obitosNovos;obitosAcumulado\r\n" >> pure ()
+headersP = ("regiao;estado;data;casosNovos;casosAcumulados;obitosNovos;obitosAcumulados\r\n" >> pure ()) <|> fail "wrong headers"
 
 rowP :: A.Parser Row
 rowP = do
   A.takeWhile (/= ';') <* A.char ';'
   estado <- A.takeWhile (/= ';') <* A.char ';'
-  day <- A.decimal <* A.char '/'
-  month <- A.decimal <* A.char '/'
-  year <- A.decimal <* A.char ';'
+  date <- (dateP <|> dayP) <* A.char ';'
   A.decimal  <* A.char ';'
   casosAccumulados <- A.decimal  <* A.char ';'
   A.decimal  <* A.char ';'
   obitosAccumulados <- A.decimal  <* "\r\n"
 
-  return ( estado, fromGregorian year month day
+  return ( estado, date
          , casosAccumulados,obitosAccumulados )
+
+invalidRowP :: A.Parser Text
+invalidRowP = T.pack <$> A.manyTill A.anyChar "\r\n"
+
+dateP :: A.Parser Day
+dateP = do
+  day <- A.decimal <* A.char '/'
+  month <- A.decimal <* A.char '/'
+  year <- A.decimal
+  return $ fromGregorian year month day
+
+dayP :: A.Parser Day
+dayP = fromExcelDate <$> A.decimal
+
+fromExcelDate :: Integer -> Day
+fromExcelDate i = addDays i excelDateZero
+
+excelDateZero :: Day
+excelDateZero = fromGregorian 1900 1 1

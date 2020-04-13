@@ -31,6 +31,8 @@ import qualified Data.Text.Encoding as T
 import qualified SUS
 import qualified CSSE
 import qualified Worldometers
+import qualified Plotly
+import qualified Vega
 
 import Series
 import Common
@@ -78,7 +80,7 @@ main = do
 
   case argMode of
     MTable -> showGrowths dates regions growths
-    MGraph -> showGraph Args{..} dates regions growths
+    MGraph -> Vega.showGraph argItem argDaily dates regions growths
 
 argsInfo :: ParserInfo Args
 argsInfo = info (helper <*> args)
@@ -115,62 +117,6 @@ align series = (dates,values)
         maxDate = maximum $ map (last . serDates) series
         values = map (\Series{..} -> map (const 0) [minDate .. addDays (-1) (head serDates)] ++ serValues
                                      ++ map (const 0) [addDays 1 (last serDates) .. maxDate]) series
-
-
-showGraph :: Args -> [Text] -> [Text] -> [[Maybe (Int, Maybe Double)]] -> IO ()
-showGraph Args{..} dates regions values = do
-
-  let empties = minimum $ map (length . takeWhile emptyGrowth) values
-      ymin = if argItem == Active || argDaily then 0 else 1
-      ymax = maybe 2 (+0.3) $ maximum $ map getGrowth $ concat values
-      series = T.intercalate ", "  $ map (graphData (drop empties dates))
-        $ zip regions $ map (drop empties) values
-      title = "COVID-19 Growth of "
-        <> (if argDaily then "daily " else "")
-        <> showItem argItem
-
-  T.putStrLn $ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
-  T.putStrLn $ "<html>"
-  T.putStrLn $ "<head>"
-  T.putStrLn $ "<meta charset=\"UTF-8\">"
-  T.putStrLn $ "<title>" <> title <> "</title>"
-  T.putStrLn $ "<script src=\"https://cdn.plot.ly/plotly-latest.min.js\"></script>"
-  T.putStrLn $ "</head>"
-  T.putStrLn $ "<body>"
-
-  -- T.putStrLn $ "<h1>" <> title <> "</h1>"
-  T.putStrLn $ "<div id=\"graph\"></div>"
-
-  T.putStrLn $ "<script>"
-  T.putStrLn $ "var data = [" <> series <> "];"
-  T.putStrLn $ "var layout = { title:'" <> title <> "'"
-    <> ", yaxis: { range: [" <> T.pack (show ymin) <> ", " <> T.pack (show ymax) <> "] }"
-    <> ", shapes: [ { type: 'line', line: { color: 'red', width: 1 }"
-    <> ", y0: 1, y1: 1, xref: 'paper', x0: 0, x1: 1 } ] };"
-  T.putStrLn $ "Plotly.newPlot('graph', data, layout);"
-  T.putStrLn $ "</script>"
-
-  T.putStrLn $ "</html>"
-
-
-emptyGrowth :: Maybe (Int, Maybe Double) -> Bool
-emptyGrowth (Just (_, Just _)) = False
-emptyGrowth _ = True
-
-
-getGrowth :: Maybe (Int, Maybe Double) -> Maybe Double
-getGrowth (Just (_, Just growth)) = Just growth
-getGrowth _ = Nothing
-
-
-graphData :: [Text] -> (Text,[Maybe (Int, Maybe Double)]) -> Text
-graphData xs (title, ys) = "{ x: [" <> xdata <> "]"
-  <> ", y: [" <> ydata <> "]"
-  <> ", mode: 'lines+markers', name: '" <> title <> "' }"
-  where xdata = T.intercalate ", " $ map (\x -> "'" <> x <> "'") xs
-        ydata = T.intercalate ", " $ map showValue ys
-        showValue (Just (_,Just growth)) = T.pack (show growth)
-        showValue _ = "null"
 
 showGrowths :: [Text] -> [Text] -> [[Maybe (Int, Maybe Double)]] -> IO ()
 showGrowths dates regions growths = do

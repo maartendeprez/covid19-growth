@@ -28,3 +28,4 @@ executables:
     - filepath
     - attoparsec
     - optparse-applicative
+    - neat-interpolation
