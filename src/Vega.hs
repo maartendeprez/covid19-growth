@@ -125,7 +125,6 @@ showGraph item daily dates regions values = do
                   {
                     encoding: {
                       x: { field: 'date', type: 'temporal', aggregate: 'min' },
-                      tooltip: [ { field: 'growth', type: 'quantitative' } ],
                     },
                     mark: { type: 'rule', color: 'gray' }
                   },
@@ -134,19 +133,14 @@ showGraph item daily dates regions values = do
                       x: { field: 'date', type: 'temporal' },
                       y: { field: 'growth', type: 'quantitative' },
                       color: { field: 'region', type: 'nominal' },
+                      text: { type: 'quantitative', field: 'growth', format: '.3f' },
                     },
-                    layer: [
-                      { mark: 'point' },
-                      {
-                        encoding: { text: { type: 'quantitative', field: 'growth', format: '.3f' } },
-                        mark: {
-                          type: 'text',
-                          strokeWidth: 2,
-                          align: 'right',
-                          dx: -5, dy: -5
-                        }
-                      }
-                    ]
+                    mark: {
+                      type: 'text',
+                      strokeWidth: 2,
+                      align: 'right',
+                      dx: -5, dy: -5
+                    }
                   },
                 ]
               }
