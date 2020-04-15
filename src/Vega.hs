@@ -58,8 +58,9 @@ showGraph item daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith t
         hover = ( And ( Selection "Highlight" ) ( Selection "Hover" ) )
 
         ruleLayer = asSpec [ transform
-                             $ filter ( FCompose (Selection "Highlight") )
-                             $ pivot "Region" "Growth" [ PiGroupBy ["Date"] ] $ []
+                             -- $ filter ( FCompose (Selection "Highlight") )
+                             $ pivot "Region" "Growth" [ PiGroupBy ["Date"] ]
+                             $ []
                            , encoding $ position X [ PName "Date", PmType Temporal ]
                              $ opacity [ MDataCondition [(Selection "Hover", [MNumber 1])]
                                          [MNumber 0] ]
