@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d9cbe70dda9aa1d655110eb6064a4fdc60cd89d8e8dddeff099fa145aab2c951
+-- hash: ff151c2a2cff758fc7d3e06213643ecdd26803b16de016883d39d25b2d9ed5e9
 
 name:           corona
 version:        0.1.0.0
@@ -43,7 +43,7 @@ executable corona
     , containers
     , filepath
     , http-conduit
-    , neat-interpolation
+    , hvega
     , optparse-applicative
     , text
     , time

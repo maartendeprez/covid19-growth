@@ -23,9 +23,9 @@ executables:
     - text
     - bytestring
     - aeson
+    - hvega
     - http-conduit
     - unix
     - filepath
     - attoparsec
     - optparse-applicative
-    - neat-interpolation

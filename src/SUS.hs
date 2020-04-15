@@ -80,7 +80,7 @@ getUrl = parseRequest_ . ("https://covid.saude.gov.br/assets/files/" <>)
 getFileName :: IO String
 getFileName = do
   time <- getCurrentTime
-  return $ "COVID19_20200411.csv" -- <> formatTime defaultTimeLocale "%Y%m%d"
+  return $ "COVID19_20200414.csv" -- <> formatTime defaultTimeLocale "%Y%m%d"
 --    (addUTCTime (-nominalDay) time) <> ".csv"
 --    time <> ".csv"
 
@@ -99,7 +99,7 @@ rowP :: A.Parser Row
 rowP = do
   A.takeWhile (/= ';') <* A.char ';'
   estado <- A.takeWhile (/= ';') <* A.char ';'
-  date <- (dateP <|> dayP) <* A.char ';'
+  date <- (dateP <|> date2P <|> dayP) <* A.char ';'
   A.decimal  <* A.char ';'
   casosAccumulados <- A.decimal  <* A.char ';'
   A.decimal  <* A.char ';'
@@ -116,6 +116,13 @@ dateP = do
   day <- A.decimal <* A.char '/'
   month <- A.decimal <* A.char '/'
   year <- A.decimal
+  return $ fromGregorian year month day
+
+date2P :: A.Parser Day
+date2P = do
+  year <- A.decimal <* A.char '-'
+  month <- A.decimal <* A.char '-'
+  day <- A.decimal
   return $ fromGregorian year month day
 
 dayP :: A.Parser Day

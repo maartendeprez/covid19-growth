@@ -1,14 +1,14 @@
 #!/bin/bash
 
 europe=( Italy Spain Belgium Netherlands Romania Switzerland Austria France Germany Sweden Norway Finland UK )
-america=( Brazil Chile Argentina Ecuador Bolivia Mexico US Canada )
-africa=( South-Africa Democratic-Republic-of-the-Congo Egypt Israel Palestine )
+america=( Brazil Chile Peru Argentina Ecuador Bolivia Mexico US Canada )
+africa=( South-Africa Democratic-Republic-of-the-Congo Ghana Egypt Israel )
 rest=( China South-Korea Japan Russia India Australia Iran Iraq )
-brstates=( CE RJ SP DF MG GO )
+brstates=( CE RJ SP DF MG GO AM PE )
 
 minimum=100
 mindeaths=10
-smoothing=3
+smoothing=7
 
 stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph active "${europe[@]}" > graphs/active-europe.html
 stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph confirmed "${europe[@]}" > graphs/confirmed-europe.html
