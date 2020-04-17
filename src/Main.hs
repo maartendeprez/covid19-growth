@@ -41,8 +41,8 @@ import Common
 data Args = Args { argMode :: Mode
                  , argSource :: Source
                  , argSmoothing :: Int
-                 , argAvgSmoothing :: Int
-                 , argStart :: Int
+                 , argAverage :: Int
+                 , argStart :: Double
                  , argDaily :: Bool
                  , argItem :: Item
                  , argRegions :: [Text]
@@ -76,7 +76,7 @@ main = do
                       <> intercalate ", " (map T.unpack invalidRegions))
 
   let (dates,values) = align $ map (dataMap M.!) regions
-      growths = map (getGrowths argStart argSmoothing argAvgSmoothing argDaily) values
+      growths = map (getGrowths argDaily argStart argSmoothing argAverage) values
 
   case argMode of
     MTable -> showGrowths dates regions growths
@@ -94,8 +94,8 @@ args = Args
                                        <> help "Where to obtain the input data (csse / worldometers).")
   <*> option auto (long "smoothing" <> short 's' <> value 3 <> showDefault
                    <> help "Over how many days to calculate growth rate.")
-  <*> option auto (long "avg-smoothing" <> short 'a' <> value 3 <> showDefault
-                   <> help "Over how many days to calculate daily increase / decrease averages.")
+  <*> option auto (long "average" <> short 'a' <> value 3 <> showDefault
+                   <> help "Over how many days to average daily growth.")
   <*> option auto (long "minimum" <> short 'm' <> value 50 <> showDefault
                    <> help "The minimum number to trigger the start of the series.")
   <*> switch (long "daily" <> short 'd' <> help "Calculate over daily increase / decreasy instead of total value.")
@@ -118,7 +118,7 @@ align series = (dates,values)
         values = map (\Series{..} -> map (const 0) [minDate .. addDays (-1) (head serDates)] ++ serValues
                                      ++ map (const 0) [addDays 1 (last serDates) .. maxDate]) series
 
-showGrowths :: [Text] -> [Text] -> [[Maybe (Int, Maybe Double)]] -> IO ()
+showGrowths :: [Text] -> [Text] -> [[Maybe (Double, Maybe Double)]] -> IO ()
 showGrowths dates regions growths = do
   putStrLn $ printf "%*s" dateWidth ("" :: String) <> intercalate " | "
     (map (printf "%*s" colWidth) regions)
@@ -128,7 +128,7 @@ showGrowths dates regions growths = do
         (map showGrowth growth)
 
 
-showGrowth :: Maybe (Int, Maybe Double) -> String
+showGrowth :: Maybe (Double, Maybe Double) -> String
 showGrowth Nothing = printf "%*s" colWidth ("" :: String)
 showGrowth (Just (n,f)) = printf "%s (%6d)" (growth f) n
   where growth :: Maybe Double -> String
@@ -141,26 +141,25 @@ showGrowth (Just (n,f)) = printf "%s (%6d)" (growth f) n
 dateWidth = 10 :: Int
 colWidth = 17 :: Int
 
-getGrowths :: Int -> Int -> Int -> Bool -> [Int] -> [Maybe (Int, Maybe Double)]
+getGrowths :: Bool -> Double -> Int -> Int -> [Int] -> [Maybe (Double, Maybe Double)]
+getGrowths False start len avg = growths start len . map fromIntegral
+getGrowths True start len avg = (take len (repeat Nothing) ++)
+  . growths start len . average avg
 
-getGrowths start len avg False = growths []
-  where growths _ [] = []
-        growths [] (n:ns)
-          | n < start = Nothing : growths [] ns
-          | otherwise = Just (n,Nothing) : growths [n] ns
-        growths rs (n:ns)
-          | length rs < len = Just (n,Nothing) : growths (rs ++ [n]) ns
-          | otherwise = Just (n,Just f) : growths (tail rs ++ [n]) ns
-            where f = (fromIntegral n / fromIntegral (head rs))
-                    ** (1 / fromIntegral (length rs))
 
-getGrowths start len avg True = growths []
-  where growths _ [] = []
-        growths [] (n:ns)
-          | n < start = Nothing : growths [] ns
-          | otherwise = Nothing : growths [n] ns
-        growths rs (n:ns)
-          | length rs < len + avg = Just (n - last rs, Nothing) : growths (rs ++ [n]) ns
-          | otherwise = Just (n - last rs, Just f) : growths (tail rs ++ [n]) ns
-            where f = ( fromIntegral (n - rs!!len) / fromIntegral (rs!!avg - head rs))
-                    ** (1 / fromIntegral len)
+average :: Int -> [Int] -> [Double]
+average n xs
+  | length xs <= n = []
+  | otherwise = fromIntegral (xs!!n - xs!!0) / fromIntegral n : average n (tail xs)
+
+
+growths :: Double -> Int -> [Double] -> [Maybe (Double, Maybe Double)]
+growths start len = growths' []
+  where growths' _ [] = []
+        growths' [] (n:ns)
+          | n < start = Nothing : growths' [] ns
+          | otherwise = Just (n,Nothing) : growths' [n] ns
+        growths' rs (n:ns)
+          | length rs < len = Just (n,Nothing) : growths' (rs ++ [n]) ns
+          | otherwise = Just (n,Just f) : growths' (tail rs ++ [n]) ns
+          where f = (n / head rs) ** (1 / fromIntegral len)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 europe=( Italy Spain Belgium Netherlands Romania Switzerland Austria France Germany Sweden Norway Finland UK )
-america=( Brazil Chile Peru Argentina Ecuador Bolivia Mexico US Canada )
+america=( Brazil Chile Peru Argentina Ecuador Bolivia Colombia Mexico US Canada )
 africa=( South-Africa Democratic-Republic-of-the-Congo Ghana Egypt Israel )
 rest=( China South-Korea Japan Russia India Australia Iran Iraq )
 brstates=( CE RJ SP DF MG GO AM PE )

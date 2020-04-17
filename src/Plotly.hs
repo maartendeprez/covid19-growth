@@ -9,7 +9,7 @@ import qualified Data.Text.IO as T
 import Series
 
 
-showGraph :: Item -> Bool -> [Text] -> [Text] -> [[Maybe (Int, Maybe Double)]] -> IO ()
+showGraph :: Item -> Bool -> [Text] -> [Text] -> [[Maybe (Double, Maybe Double)]] -> IO ()
 showGraph item daily dates regions values = do
 
   let empties = minimum $ map (length . takeWhile emptyGrowth) values
@@ -45,19 +45,19 @@ showGraph item daily dates regions values = do
   T.putStrLn $ "</html>"
 
 
-emptyGrowth :: Maybe (Int, Maybe Double) -> Bool
+emptyGrowth :: Maybe (Double, Maybe Double) -> Bool
 emptyGrowth (Just (_, Just _)) = False
 emptyGrowth _ = True
 
 
-getGrowth :: Maybe (Int, Maybe Double) -> Maybe Double
+getGrowth :: Maybe (Double, Maybe Double) -> Maybe Double
 getGrowth (Just (_, Just growth)) = Just growth
 getGrowth _ = Nothing
 
 
 
 
-graphData :: [Text] -> (Text,[Maybe (Int, Maybe Double)]) -> Text
+graphData :: [Text] -> (Text,[Maybe (Double, Maybe Double)]) -> Text
 graphData xs (title, ys) = "{ x: [" <> xdata <> "]"
   <> ", y: [" <> ydata <> "]"
   <> ", mode: 'lines+markers', name: '" <> title <> "' }"

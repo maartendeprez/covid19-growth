@@ -20,7 +20,7 @@ import Graphics.Vega.VegaLite
 import Series
 
 
-showGraph :: Item -> Bool -> [Text] -> [Text] -> [[Maybe (Int, Maybe Double)]] -> IO ()
+showGraph :: Item -> Bool -> [Text] -> [Text] -> [[Maybe (Double, Maybe Double)]] -> IO ()
 showGraph item daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith titleStr (Just opts) graph
   where graph = toVegaLite [ title titleStr []
                            , widthOfContainer, heightOfContainer
@@ -91,17 +91,17 @@ showGraph item daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith t
           <> showItem item
 
 
-emptyGrowth :: Maybe (Int, Maybe Double) -> Bool
+emptyGrowth :: Maybe (Double, Maybe Double) -> Bool
 emptyGrowth (Just (_, Just _)) = False
 emptyGrowth _ = True
 
 
-getGrowth :: Maybe (Int, Maybe Double) -> Maybe Double
+getGrowth :: Maybe (Double, Maybe Double) -> Maybe Double
 getGrowth (Just (_, Just growth)) = Just growth
 getGrowth _ = Nothing
 
 
-graphData :: [Text] -> (Text,[Maybe (Int, Maybe Double)]) -> [DataRow]
+graphData :: [Text] -> (Text,[Maybe (Double, Maybe Double)]) -> [DataRow]
 graphData xs (name,ys) = mapMaybe point $ zip xs ys 
   where point (x,(Just (_,Just y))) = Just
           $ object [ "Region" .= name

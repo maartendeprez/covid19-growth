@@ -80,7 +80,7 @@ getUrl = parseRequest_ . ("https://covid.saude.gov.br/assets/files/" <>)
 getFileName :: IO String
 getFileName = do
   time <- getCurrentTime
-  return $ "COVID19_20200414.csv" -- <> formatTime defaultTimeLocale "%Y%m%d"
+  return $ "COVID19_20200415.csv" -- <> formatTime defaultTimeLocale "%Y%m%d"
 --    (addUTCTime (-nominalDay) time) <> ".csv"
 --    time <> ".csv"
 
