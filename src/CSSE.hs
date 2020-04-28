@@ -36,25 +36,21 @@ import Series
 import Common
 
 
-data XItem = XConfirmed | XRecovered | XDeaths
-               deriving Show
-
-
-getData :: Item -> IO DataMap
-getData Confirmed = getXData XConfirmed
-getData Recovered = getXData XRecovered
-getData Deaths = getXData XDeaths
-getData Active = getActive
-  <$> getXData XConfirmed
-  <*> getXData XRecovered
-  <*> getXData XDeaths
+getData :: Text -> IO DataMap
+getData "confirmed" = getXData "confirmed"
+getData "recovered" = getXData "recovered"
+getData "deaths" = getXData "deaths"
+getData "active" = getActive
+  <$> getXData "confirmed"
+  <*> getXData "recovered"
+  <*> getXData "deaths"
 
 getActive :: DataMap -> DataMap -> DataMap -> DataMap
 getActive confirmed recovered deaths = M.intersectionWith active (M.intersectionWith active confirmed recovered) deaths
   where active Series{serValues = confirmed, ..} Series{serValues = recovered}
           = Series {serValues = map (uncurry (-)) $ zip confirmed recovered, ..}
 
-getXData :: XItem -> IO DataMap
+getXData :: Text -> IO DataMap
 getXData item = do
 
   let cachePath = cacheDir <> "/" <> cache item
@@ -100,15 +96,15 @@ getSeries serDates (state:country:_:_:values) = (serRegion, Series {..})
           | ", " `T.isInfixOf` country = T.intercalate " " $ reverse $ T.splitOn ", " country
           | otherwise = country
 
-url :: XItem -> Request
-url XConfirmed = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
-url XRecovered = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv"
-url XDeaths = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"
+url :: Text -> Request
+url "confirmed" = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+url "recovered" = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv"
+url "deaths" = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"
 
-cache :: XItem -> String
-cache XConfirmed = "confirmed.csv"
-cache XRecovered = "recovered.csv"
-cache XDeaths = "deaths.csv"
+cache :: Text -> String
+cache "confirmed" = "confirmed.csv"
+cache "recovered" = "recovered.csv"
+cache "deaths" = "deaths.csv"
 
 cacheDir :: String
 cacheDir = "data/csse"

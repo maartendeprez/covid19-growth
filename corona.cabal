@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ff151c2a2cff758fc7d3e06213643ecdd26803b16de016883d39d25b2d9ed5e9
+-- hash: c601f0997669829d31e2326e169f4208ff9c89bbada57e94363b0119db336974
 
 name:           corona
 version:        0.1.0.0
@@ -27,6 +27,7 @@ executable corona
       Common
       CSSE
       Plotly
+      Sciensano
       Series
       SUS
       Vega

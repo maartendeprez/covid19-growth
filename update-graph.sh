@@ -3,34 +3,71 @@
 europe=( Italy Spain Belgium Netherlands Romania Switzerland Austria France Germany Sweden Norway Finland UK )
 america=( Brazil Chile Peru Argentina Ecuador Bolivia Colombia Mexico US Canada )
 africa=( South-Africa Democratic-Republic-of-the-Congo Ghana Egypt Israel )
-rest=( China South-Korea Japan Russia India Australia Iran Iraq )
-brstates=( CE RJ SP DF MG GO AM PE )
+rest=( China South-Korea Japan Russia India Australia Iran Iraq Turkey )
+brstates=( CE RJ SP DF MG GO AM PE BA )
+beprovinces=( VlaamsBrabant Limburg Antwerpen WestVlaanderen )
 
-minimum=100
+minactive=100
+minconfirmed=100
 mindeaths=10
+mindailyactive=100
+mindailyconfirmed=100
+mindailydeaths=10
+minhospitalizations=10
+mindailyhospitalizations=10
+
 smoothing=7
+average=7
 
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph active "${europe[@]}" > graphs/active-europe.html
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph confirmed "${europe[@]}" > graphs/confirmed-europe.html
-stack run -- --source worldometers --minimum $mindeaths --smoothing $smoothing --graph deaths "${europe[@]}" > graphs/deaths-europe.html
 
-stack run -- --source csse --minimum $minimum --smoothing $smoothing --graph active "${europe[@]}" > graphs/active-europe-csse.html
-stack run -- --source csse --minimum $minimum --smoothing $smoothing --graph confirmed "${europe[@]}" > graphs/confirmed-europe-csse.html
-stack run -- --source csse --minimum $mindeaths --smoothing $smoothing --graph deaths "${europe[@]}" > graphs/deaths-europe-csse.html
+stack build
+graph=.stack-work/dist/x86_64-linux-tinfo6/Cabal-3.0.1.0/build/corona/corona
 
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph active "${america[@]}" > graphs/active-america.html
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph confirmed "${america[@]}" > graphs/confirmed-america.html
-stack run -- --source worldometers --minimum $mindeaths --smoothing $smoothing --graph deaths "${america[@]}" > graphs/deaths-america.html
 
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph active "${africa[@]}" > graphs/active-africa.html
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph confirmed "${africa[@]}" > graphs/confirmed-africa.html
-stack run -- --source worldometers --minimum $mindeaths --smoothing $smoothing --graph deaths "${africa[@]}" > graphs/deaths-africa.html
+# Worldometer country growth rate graphs
 
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph active "${rest[@]}" > graphs/active-rest.html
-stack run -- --source worldometers --minimum $minimum --smoothing $smoothing --graph confirmed "${rest[@]}" > graphs/confirmed-rest.html
-stack run -- --source worldometers --minimum $mindeaths --smoothing $smoothing --graph deaths "${rest[@]}" > graphs/deaths-rest.html
+for item in active confirmed deaths; do
 
-stack run -- --source sus --minimum $minimum --smoothing $smoothing --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil.html
-stack run -- --source sus --minimum $mindeaths --smoothing $smoothing --graph deaths "${brstates[@]}" > graphs/deaths-brasil.html
+    for region in europe america africa rest; do
+
+	echo "Graphing $region $item..."
+
+	$graph --source worldometers --minimum $(eval echo \$min$item) --smoothing $smoothing --graph $item $(eval echo \${$region[@]}) > graphs/$item-$region.html
+	$graph --source worldometers --daily --minimum $(eval echo \$mindaily$item) --smoothing $smoothing --average $average --graph $item $(eval echo \${$region[@]}) > graphs/$item-$region-daily.html
+
+    done
+
+done
+
+
+# Brasil per-state graphs confirmed cases
+
+echo "Graphing Brasil confirmed..."
+
+$graph --source sus --minimum $minconfirmed --smoothing $smoothing --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil.html
+$graph --source sus --daily --minimum $mindailyconfirmed --smoothing $smoothing --average $average --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-daily.html
+$graph --source sus --absolute --minimum $minconfirmed --smoothing $smoothing --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-absolute.html
+$graph --source sus --absolute --daily --minimum $mindailyconfirmed --smoothing $smoothing --average $average --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-absolute-daily.html
+
+
+# Brasil per-state graphs deaths
+
+echo "Graphing Brasil deaths..."
+
+$graph --source sus --minimum $mindeaths --smoothing $smoothing --graph deaths "${brstates[@]}" > graphs/deaths-brasil.html
+$graph --source sus --daily --minimum $mindailydeaths --smoothing $smoothing --average $average --graph deaths "${brstates[@]}" > graphs/deaths-brasil-daily.html
+$graph --source sus --absolute --minimum $mindeaths --smoothing $smoothing --graph deaths "${brstates[@]}" > graphs/deaths-brasil-absolute.html
+$graph --source sus --absolute --daily --minimum $mindailydeaths --smoothing $smoothing --average $average --graph deaths "${brstates[@]}" > graphs/deaths-brasil-absolute-daily.html
+
+
+# Belgium per-province hospitalizations
+
+echo "Graphing Belgium hospitalizations..."
+
+stack run -- --source sciensano --minimum $minhospitalizations --smoothing $smoothing --graph TOTAL_IN "${beprovinces[@]}" > graphs/hospitalizations-belgium.html
+stack run -- --source sciensano --daily --minimum $mindailyhospitalizations --smoothing $smoothing --graph TOTAL_IN "${beprovinces[@]}" > graphs/hospitalizations-belgium-daily.html
+
+stack run -- --source sciensano --minimum $minhospitalizations --smoothing $smoothing --average $average --graph TOTAL_IN_ICU "${beprovinces[@]}" > graphs/hospitalizations-icu-belgium.html
+stack run -- --source sciensano --daily --minimum $mindailyhospitalizations --smoothing $smoothing --average $average --graph TOTAL_IN_ICU "${beprovinces[@]}" > graphs/hospitalizations-icu-belgium-daily.html
 
 scp graphs/*.html crissaegrim.be.eu.org:covid19/

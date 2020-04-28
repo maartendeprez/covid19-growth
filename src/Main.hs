@@ -30,6 +30,7 @@ import qualified Data.Text.Encoding as T
 
 import qualified SUS
 import qualified CSSE
+import qualified Sciensano
 import qualified Worldometers
 import qualified Plotly
 import qualified Vega
@@ -43,12 +44,13 @@ data Args = Args { argMode :: Mode
                  , argSmoothing :: Int
                  , argAverage :: Int
                  , argStart :: Double
+                 , argAbsolute :: Bool
                  , argDaily :: Bool
-                 , argItem :: Item
+                 , argItem :: Text
                  , argRegions :: [Text]
                  } deriving Show
 
-data Source = SCSSE | SWorldometers | SSus deriving Show
+data Source = SCSSE | SWorldometers | SSus | SSciensano deriving Show
 data Mode = MTable | MGraph deriving Show
 
 
@@ -60,9 +62,10 @@ main = do
   dataMap <- case argSource of
     SCSSE -> CSSE.getData argItem
     SWorldometers -> M.lookup argItem <$> Worldometers.getData argRegions >>= \case
-      Nothing -> exitWithError $ "Item " <> T.unpack (showItem argItem) <> " is not available from Worldometers"
+      Nothing -> exitWithError $ "Item " <> T.unpack argItem <> " is not available from Worldometers"
       Just map -> pure map
     SSus -> SUS.getData argItem
+    SSciensano -> Sciensano.getData argItem
 
   let (regions,invalidRegions) = partition (`M.member` dataMap) argRegions
 
@@ -80,12 +83,12 @@ main = do
 
   case argMode of
     MTable -> showGrowths dates regions growths
-    MGraph -> Vega.showGraph argItem argDaily dates regions growths
+    MGraph -> Vega.showGraph argItem argAbsolute argDaily dates regions growths
 
 argsInfo :: ParserInfo Args
 argsInfo = info (helper <*> args)
-      ( fullDesc <> progDesc "Calculate daily growth rates for the covid-19 pandemic"
-        <> header "corona - calculate daily growth rates for the covid-19 pandemic" )
+      ( fullDesc <> progDesc "Show tables or graphs of absolute values and / or daily growth rates for the covid-19 pandemic."
+        <> header "corona - show daily growth rates for the covid-19 pandemic" )
 
 args :: Parser Args
 args = Args
@@ -98,14 +101,16 @@ args = Args
                    <> help "Over how many days to average daily growth.")
   <*> option auto (long "minimum" <> short 'm' <> value 50 <> showDefault
                    <> help "The minimum number to trigger the start of the series.")
+  <*> switch (long "absolute" <> short 'b' <> help "Graph absolute values instead of growth rates.")
   <*> switch (long "daily" <> short 'd' <> help "Calculate over daily increase / decreasy instead of total value.")
-  <*> argument (maybeReader readItem) (metavar "ITEM" <> help "The input series (confirmed / active / recovered / deaths).")
+  <*> strArgument (metavar "ITEM" <> help "The input series (confirmed / active / recovered / deaths).")
   <*> some (strArgument (metavar "REGION" <> help "The region(s) to show"))
 
 
 readSource :: String -> Maybe Source
 readSource "csse" = Just SCSSE
 readSource "worldometers" = Just SWorldometers
+readSource "sciensano" = Just SSciensano
 readSource "sus" = Just SSus
 readSource _ = Nothing
 
@@ -130,7 +135,8 @@ showGrowths dates regions growths = do
 
 showGrowth :: Maybe (Double, Maybe Double) -> String
 showGrowth Nothing = printf "%*s" colWidth ("" :: String)
-showGrowth (Just (n,f)) = printf "%s (%6d)" (growth f) n
+showGrowth (Just (n,f)) = printf "%s (%6.0f)" (growth f) n
+
   where growth :: Maybe Double -> String
         growth Nothing = "        "
         growth (Just f)
@@ -142,23 +148,29 @@ dateWidth = 10 :: Int
 colWidth = 17 :: Int
 
 getGrowths :: Bool -> Double -> Int -> Int -> [Int] -> [Maybe (Double, Maybe Double)]
-getGrowths False start len avg = growths start len . map fromIntegral
-getGrowths True start len avg = (take len (repeat Nothing) ++)
-  . growths start len . average avg
+getGrowths False start len avg = startAt start (growths len) . map fromIntegral
+getGrowths True start len avg = startAt start (growths len . average avg) . map fromIntegral
 
 
-average :: Int -> [Int] -> [Double]
-average n xs
-  | length xs <= n = []
-  | otherwise = fromIntegral (xs!!n - xs!!0) / fromIntegral n : average n (tail xs)
+average :: Int -> [Double] -> [Double]
+average n xs = start ++ average' xs
+  where
+    start = [ (xs!!i - xs!!0) / fromIntegral i
+            | i <- [0 .. (n-1)] ]
+    average' xs
+      | length xs <= n = []
+      | otherwise = (xs!!n - xs!!0) / fromIntegral n
+        : average' (tail xs)
 
 
-growths :: Double -> Int -> [Double] -> [Maybe (Double, Maybe Double)]
-growths start len = growths' []
+startAt :: Ord a => a -> ([a] -> [Maybe b]) -> [a] -> [Maybe b]
+startAt n f xs = map (const Nothing) as <> f bs
+  where (as,bs) = span (< n) xs
+
+
+growths :: Int -> [Double] -> [Maybe (Double, Maybe Double)]
+growths len = growths' []
   where growths' _ [] = []
-        growths' [] (n:ns)
-          | n < start = Nothing : growths' [] ns
-          | otherwise = Just (n,Nothing) : growths' [n] ns
         growths' rs (n:ns)
           | length rs < len = Just (n,Nothing) : growths' (rs ++ [n]) ns
           | otherwise = Just (n,Just f) : growths' (tail rs ++ [n]) ns

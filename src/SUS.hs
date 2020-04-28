@@ -3,11 +3,13 @@
 module SUS (getData) where
 
 import Network.HTTP.Simple
+import System.Posix.Directory
 import System.IO
 
 import Control.Applicative
 
 import Data.Either
+import Data.List
 
 import Data.Time.Clock
 import Data.Time.Format
@@ -31,10 +33,10 @@ import Series
 import Common
 
 
-getData :: Item -> IO DataMap
-getData Confirmed = getSeries (\(_,_,x,_) -> x) <$> getXData
-getData Deaths = getSeries (\(_,_,_,x) -> x) <$> getXData
-getData item = exitWithError $ "Item " <> T.unpack (showItem item)
+getData :: Text -> IO DataMap
+getData "confirmed" = getSeries (\(_,_,x,_) -> x) <$> getXData
+getData "deaths" = getSeries (\(_,_,_,x) -> x) <$> getXData
+getData item = exitWithError $ "Item " <> T.unpack item
   <> " is not available from SUS"
 
 
@@ -54,16 +56,8 @@ getSeries f = foldr insert M.empty
 getXData :: IO [Row]
 getXData = do
   file <- getFileName
-  let cachePath = cacheDir <> "/" <> file
-  hPutStrLn stderr $ "Reading " <> cachePath
-  input <- {-outdated cachePath >>= \case
-    True -> do
-      hPutStrLn stderr $ "Downloading SUS data..."
-      createDirectoryRecursive cacheDir
-      download <- getResponseBody <$> httpBS (getUrl file)
-      B.writeFile cachePath download
-      return download
-    False -> -} B.readFile (cacheDir <> "/" <> file)
+  hPutStrLn stderr $ "Reading " <> file
+  input <- B.readFile (cacheDir <> "/" <> file)
 
   case parseCSV (T.decodeUtf8 input) of
     Left err -> exitWithError $ "Failed to parse input: " <> err
@@ -78,11 +72,27 @@ getUrl :: String -> Request
 getUrl = parseRequest_ . ("https://covid.saude.gov.br/assets/files/" <>)
 
 getFileName :: IO String
-getFileName = do
-  time <- getCurrentTime
-  return $ "COVID19_20200415.csv" -- <> formatTime defaultTimeLocale "%Y%m%d"
+getFileName = last . sort . filter f <$> readDir cacheDir
+  where f name = ( "COVID19_" `isPrefixOf` name
+                   && ".csv" `isSuffixOf` name )
+  
+
+-- return $ "COVID19_20200415.csv" -- <> formatTime defaultTimeLocale "%Y%m%d"
 --    (addUTCTime (-nominalDay) time) <> ".csv"
 --    time <> ".csv"
+
+readDir :: FilePath -> IO [FilePath]
+readDir path = do
+  dir <- openDirStream path
+  files <- getFiles dir
+  closeDirStream dir
+  return files
+
+getFiles :: DirStream -> IO [FilePath]
+getFiles ds = readDirStream ds >>= \case
+  "" -> pure []
+  file -> (file:) <$> getFiles ds
+
 
 type Row = (Text,Day,Int,Int)
 

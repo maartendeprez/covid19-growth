@@ -38,14 +38,14 @@ import qualified Data.Attoparsec.Text as A
 import Series
 import Common
 
-getData :: [Text] -> IO (Map Item DataMap)
+getData :: [Text] -> IO (Map Text DataMap)
 getData regions = foldM addRegion M.empty regions
   where addRegion map region = M.unionWith M.union map
           . fmap toDataMap <$> getSeries region
         toDataMap Series{..} = M.singleton serRegion Series{..}
 
 
-getSeries :: Text -> IO (Map Item Series)
+getSeries :: Text -> IO (Map Text Series)
 getSeries region = do
   let cachePath = cacheDir <> "/" <> T.unpack region <> ".csv"
   outdated cachePath >>= \case
@@ -119,22 +119,22 @@ monthP = ("Jan" *> pure 1)
   <|> ("Dec" *> pure 12)
 
 
-getItem :: Text -> Maybe Item
-getItem "Cases" = Just Confirmed
-getItem "Deaths" = Just Deaths
-getItem "Currently Infected" = Just Active
+getItem :: Text -> Maybe Text
+getItem "Cases" = Just "confirmed"
+getItem "Deaths" = Just "deaths"
+getItem "Currently Infected" = Just "active"
 getItem name = Nothing
 
 
-addRecovered :: Map Item Series -> Map Item Series
+addRecovered :: Map Text Series -> Map Text Series
 addRecovered map = case getRecovered map of
-  Just series -> M.insert Recovered series map
+  Just series -> M.insert "recovered" series map
   Nothing -> map
 
-getRecovered :: Map Item Series -> Maybe Series
+getRecovered :: Map Text Series -> Maybe Series
 getRecovered m = do
-  Series{serValues = confirmed, ..} <- M.lookup Confirmed m
-  Series{serValues = deaths} <- M.lookup Deaths m
-  Series{serValues = active} <- M.lookup Active m
+  Series{serValues = confirmed, ..} <- M.lookup "confirmed" m
+  Series{serValues = deaths} <- M.lookup "deaths" m
+  Series{serValues = active} <- M.lookup "active" m
   return Series { serValues = map (uncurry (-)) $ zip confirmed
                   $ map (uncurry (+)) $ zip active deaths, .. }

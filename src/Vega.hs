@@ -20,8 +20,8 @@ import Graphics.Vega.VegaLite
 import Series
 
 
-showGraph :: Item -> Bool -> [Text] -> [Text] -> [[Maybe (Double, Maybe Double)]] -> IO ()
-showGraph item daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith titleStr (Just opts) graph
+showGraph :: Text -> Bool -> Bool -> [Text] -> [Text] -> [[Maybe (Double, Maybe Double)]] -> IO ()
+showGraph item abs daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith titleStr (Just opts) graph
   where graph = toVegaLite [ title titleStr []
                            , widthOfContainer, heightOfContainer
                            , layer [ asSpec [ dataFromRows [] dataRows
@@ -32,13 +32,14 @@ showGraph item daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith t
 
         opts = object [ {-"renderer" .= ("svg" :: Text)-} ]
 
-        dataRows = concatMap (graphData dates) $ zip regions values
+        dataRows = concatMap (graphData abs dates) $ zip regions values
         dataLayer = asSpec [ dataEnc [], layer [ lineLayer , pointLayer ] ]
         dataEnc = encoding
           . position X [ PName "Date", PmType Temporal, PTimeUnit (Utc YearMonthDate)
                        , PTitle "Date", PScale [ SDomain $ DStrings [xmin, xmax] ] ]
-          . position Y [ PName "Growth", PmType Quantitative
-                       , PScale [ SDomain $ DNumbers [ymin, ymax] ] ]
+          . position Y [ PName "Value", PmType Quantitative
+                       , PScale [ SDomain $ DNumbers [ymin, ymax]
+                                , SType $ if abs then ScLog else ScLinear ] ]
           . color [ MName "Region", MmType Nominal ]
 
         lineLayer = asSpec [ mark Line [], lineEnc [], lineSel [] ]
@@ -59,7 +60,7 @@ showGraph item daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith t
 
         ruleLayer = asSpec [ transform
                              -- $ filter ( FCompose (Selection "Highlight") )
-                             $ pivot "Region" "Growth" [ PiGroupBy ["Date"] ]
+                             $ pivot "Region" "Value" [ PiGroupBy ["Date"] ]
                              $ []
                            , encoding $ position X [ PName "Date", PmType Temporal ]
                              $ opacity [ MDataCondition [(Selection "Hover", [MNumber 1])]
@@ -73,42 +74,50 @@ showGraph item daily dates regions values = TL.putStrLn $ toFullScreenHtmlWith t
                              $ []
                            ]
 
-        refLayer = asSpec [ dataFromColumns [] $ dataColumn "Growth" (Numbers refs) $ []
+        refLayer = asSpec [ dataFromColumns [] $ dataColumn "Value" (Numbers refs) $ []
                           , mark Rule [ MColor "red", MSize 1 ]
-                          , encoding $ position Y [ PName "Growth", PmType Quantitative ] $ []
+                          , encoding $ position Y [ PName "Value", PmType Quantitative ] $ []
                           ]
 
-        refs = [if item == Active then 0 else 1]
-        empties = minimum $ map (length . takeWhile emptyGrowth) values
+        refs = if abs then [] else [1]
+        empties = minimum $ map (length . takeWhile (emptyValue abs)) values
 
-        ymin = if item == Active || daily then 0 else 1
-        ymax = maybe 2 (+0.3) $ maximum $ map getGrowth $ concat values
+        ymin = if abs then minimum $ mapMaybe (getValue abs) $ concat values
+               else if item == "active" || daily then 0 else 1
+        ymax = 0.3 + maximum (mapMaybe (getValue abs) $ concat values)
         xmin = head $ drop empties dates
         xmax = last dates
 
         titleStr = "COVID-19 Growth of "
           <> (if daily then "daily " else "")
-          <> showItem item
+          <> item
 
 
-emptyGrowth :: Maybe (Double, Maybe Double) -> Bool
-emptyGrowth (Just (_, Just _)) = False
-emptyGrowth _ = True
+emptyValue :: Bool -> Maybe (Double, Maybe Double) -> Bool
+emptyValue True (Just (_, _)) = False
+emptyValue False (Just (_, Just _)) = False
+emptyValue _ _ = True
 
 
-getGrowth :: Maybe (Double, Maybe Double) -> Maybe Double
-getGrowth (Just (_, Just growth)) = Just growth
-getGrowth _ = Nothing
+getValue :: Bool -> Maybe (Double, Maybe Double) -> Maybe Double
+getValue True (Just (value,_)) = getValue' value
+getValue False (Just (_, Just growth)) = getValue' growth
+getValue _ _ = Nothing
+
+getValue' :: Double -> Maybe Double
+getValue' v
+  | isNaN v || isInfinite v = Nothing
+  | otherwise = Just v
 
 
-graphData :: [Text] -> (Text,[Maybe (Double, Maybe Double)]) -> [DataRow]
-graphData xs (name,ys) = mapMaybe point $ zip xs ys 
-  where point (x,(Just (_,Just y))) = Just
-          $ object [ "Region" .= name
-                   , "Date"   .= x
-                   , "Growth" .= y ]
-        point _ = Nothing
 
+graphData :: Bool -> [Text] -> (Text,[Maybe (Double, Maybe Double)]) -> [DataRow]
+graphData abs xs (name,ys) = mapMaybe point $ zip xs ys
+  where point (x,v) = value x <$> getValue abs v 
+        value x y = object
+          [ "Region" .= name
+          , "Date"   .= x
+          , "Value" .= y ]
 
 toFullScreenHtmlWith titleStr mopts vl =
   let spec = A.encodeToLazyText (fromVL vl)
