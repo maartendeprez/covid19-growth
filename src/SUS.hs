@@ -34,15 +34,15 @@ import Common
 
 
 getData :: Text -> IO DataMap
-getData "confirmed" = getSeries (\(_,_,x,_) -> x) <$> getXData
-getData "deaths" = getSeries (\(_,_,_,x) -> x) <$> getXData
+getData "confirmed" = getSeries (\(_,_,_,x,_) -> x) <$> getXData
+getData "deaths" = getSeries (\(_,_,_,_,x) -> x) <$> getXData
 getData item = exitWithError $ "Item " <> T.unpack item
   <> " is not available from SUS"
 
 
 getSeries :: (Row -> Int) -> [Row] -> DataMap
 getSeries f = foldr insert M.empty
-  where insert row@(region,day,_,_) map = case M.lookup region map of
+  where insert row@(region,_,day,_,_) map = case M.lookup region map of
           Just Series{..} -> M.insert region Series
             { serDates = day : serDates
             , serValues = f row : serValues
@@ -62,7 +62,8 @@ getXData = do
   case parseCSV (T.decodeUtf8 input) of
     Left err -> exitWithError $ "Failed to parse input: " <> err
     Right csv -> mapM_ (putStrLn . ("Invalid row: " <>) . T.unpack) invalid
-      >> pure valid where (invalid,valid) = partitionEithers csv
+      >> pure (filter (\(uf,mun,_,_,_) -> not (T.null uf) && mun == Nothing) valid)
+      where (invalid,valid) = partitionEithers csv
 
 
 cacheDir :: String
@@ -94,7 +95,7 @@ getFiles ds = readDirStream ds >>= \case
   file -> (file:) <$> getFiles ds
 
 
-type Row = (Text,Day,Int,Int)
+type Row = (Text,Maybe Int,Day,Int,Int)
 
 parseCSV :: Text -> Either String [Either Text Row]
 parseCSV = A.parseOnly (csvP <* A.endOfInput)
@@ -103,23 +104,35 @@ csvP :: A.Parser [Either Text Row]
 csvP = headersP >> many ((Right <$> rowP) <|> (Left <$> invalidRowP))
 
 headersP :: A.Parser ()
-headersP = ("regiao;estado;data;casosNovos;casosAcumulados;obitosNovos;obitosAcumulados\r\n" >> pure ()) <|> fail "wrong headers"
+headersP = ("regiao,estado,municipio,coduf,codmun,codRegiaoSaude,nomeRegiaoSaude,data,semanaEpi,populacaoTCU2019,casosAcumulado,obitosAcumulado,Recuperadosnovos,emAcompanhamentoNovos\n" >> pure ()) <|> fail "wrong headers"
 
 rowP :: A.Parser Row
 rowP = do
-  A.takeWhile (/= ';') <* A.char ';'
-  estado <- A.takeWhile (/= ';') <* A.char ';'
-  date <- (dateP <|> date2P <|> dayP) <* A.char ';'
-  A.decimal  <* A.char ';'
-  casosAccumulados <- A.decimal  <* A.char ';'
-  A.decimal  <* A.char ';'
-  obitosAccumulados <- A.decimal  <* "\r\n"
+  regiao <- A.takeWhile (/= ',') <* A.char ','
+  estado <- A.takeWhile (/= ',') <* A.char ','
+  municipio <- A.takeWhile (/= ',') <* A.char ','
+  coduf <- optional A.decimal <* A.char ','
+  codmun <- optional A.decimal <* A.char ','
+  codRegiaoSaude <- optional A.decimal <* A.char ','
+  nomeRegiaoSaude <- fieldP <* A.char ','
+  date <- date2P <* A.char ','
+  semanaEpi <- A.decimal <* A.char ','
+  populacaoTCU2019 <- optional A.decimal <* A.char ','
+  casosAcumulado <- A.decimal <* A.char ','
+  obitosAcumulado <- A.decimal <* A.char ','
+  recuperadosnovos  <- optional A.decimal <* A.char ','
+  emAcompanhamentoNovos  <- optional A.decimal <* A.char '\n'
 
-  return ( estado, date
-         , casosAccumulados,obitosAccumulados )
+  return ( estado, codmun, date
+         , casosAcumulado,obitosAcumulado )
 
 invalidRowP :: A.Parser Text
-invalidRowP = T.pack <$> A.manyTill A.anyChar "\r\n"
+invalidRowP = T.pack <$> A.manyTill A.anyChar (A.char '\n')
+
+fieldP :: A.Parser Text
+fieldP = A.char '"' *> A.takeWhile (/= '"') <* A.char '"'
+  <|> A.takeWhile (/= ',')
+
 
 dateP :: A.Parser Day
 dateP = do
