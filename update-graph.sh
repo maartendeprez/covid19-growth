@@ -6,6 +6,7 @@ africa=( South-Africa Democratic-Republic-of-the-Congo Ghana Egypt Israel )
 rest=( China South-Korea Japan Russia India Australia Iran Iraq Turkey )
 brstates=( CE RJ SP DF MG GO AM PE BA )
 beprovinces=( VlaamsBrabant Limburg Antwerpen WestVlaanderen )
+bemunis=( Scherpenheuvel-Zichem Holsbeek Aarschot Kortrijk Herselt Wervik )
 
 minactive=100
 minconfirmed=100
@@ -46,8 +47,8 @@ echo "Graphing Brasil confirmed..."
 
 $graph --source sus --minimum $minconfirmed --smoothing $smoothing --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil.html
 $graph --source sus --daily --minimum $mindailyconfirmed --smoothing $smoothing --average $average --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-daily.html
-$graph --source sus --absolute --minimum $minconfirmed --smoothing $smoothing --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-absolute.html
-$graph --source sus --absolute --daily --minimum $mindailyconfirmed --smoothing $smoothing --average $average --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-absolute-daily.html
+$graph --source sus --absolute --minimum $minconfirmed --smoothing 1 --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-absolute.html
+$graph --source sus --absolute --daily --minimum $mindailyconfirmed --smoothing 1 --average 2 --graph confirmed "${brstates[@]}" > graphs/confirmed-brasil-absolute-daily.html
 
 
 # Brasil per-state graphs deaths
@@ -64,10 +65,17 @@ $graph --source sus --absolute --daily --minimum $mindailydeaths --smoothing $sm
 
 echo "Graphing Belgium hospitalizations..."
 
-stack run -- --source sciensano --minimum $minhospitalizations --smoothing $smoothing --graph TOTAL_IN "${beprovinces[@]}" > graphs/hospitalizations-belgium.html
-stack run -- --source sciensano --daily --minimum $mindailyhospitalizations --smoothing $smoothing --graph TOTAL_IN "${beprovinces[@]}" > graphs/hospitalizations-belgium-daily.html
+$graph --source sciensano --minimum $minhospitalizations --smoothing $smoothing --graph TOTAL_IN "${beprovinces[@]}" > graphs/hospitalizations-belgium.html
+$graph --source sciensano --daily --minimum $mindailyhospitalizations --smoothing $smoothing --graph TOTAL_IN "${beprovinces[@]}" > graphs/hospitalizations-belgium-daily.html
 
-stack run -- --source sciensano --minimum $minhospitalizations --smoothing $smoothing --average $average --graph TOTAL_IN_ICU "${beprovinces[@]}" > graphs/hospitalizations-icu-belgium.html
-stack run -- --source sciensano --daily --minimum $mindailyhospitalizations --smoothing $smoothing --average $average --graph TOTAL_IN_ICU "${beprovinces[@]}" > graphs/hospitalizations-icu-belgium-daily.html
+$graph --source sciensano --minimum $minhospitalizations --smoothing $smoothing --average $average --graph TOTAL_IN_ICU "${beprovinces[@]}" > graphs/hospitalizations-icu-belgium.html
+$graph --source sciensano --daily --minimum $mindailyhospitalizations --smoothing $smoothing --average $average --graph TOTAL_IN_ICU "${beprovinces[@]}" > graphs/hospitalizations-icu-belgium-daily.html
+
+# Belgium per-municipality cases
+
+echo "Graphing Belgium cases..."
+
+$graph --source sciensano --absolute --minimum 1 --smoothing 1 --graph CASES "${bemunis[@]}" > graphs/belgium-cases-absolute.html
+$graph --source sciensano --minimum 1 --smoothing $smoothing --graph CASES "${bemunis[@]}" > graphs/belgium-cases-growth.html
 
 scp graphs/*.html crissaegrim.be.eu.org:covid19/

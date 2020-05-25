@@ -74,8 +74,8 @@ main = do
     exitFailure
   
   when (not $ null invalidRegions) $
-    hPutStrLn stderr ((case argSource of SCSSE -> "Warning: unknown region(s): "
-                                         SWorldometers -> "Warning: missing data for region(s): ")
+    hPutStrLn stderr ((case argSource of SWorldometers -> "Warning: missing data for region(s): "
+                                         _ -> "Warning: unknown region(s): ")
                       <> intercalate ", " (map T.unpack invalidRegions))
 
   let (dates,values) = align $ map (dataMap M.!) regions
